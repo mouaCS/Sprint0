@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+body {
+  background-color: #2f4274;
+}
+canvas {
+  padding: 0;
+  margin: auto;
+  display: block;
+  position: absolute;
+  top: 30%;
+  bottom: 2%;
+  left: 0;
+  right: 0;
+  border: 5px solid #1f2b49;
+  background-color: #2f4274;
+}
+h1 {
+  font-family: "Verdana";
+  font-size: 80px;
+  color: gold;
+  text-align: center;
+  text-shadow: 0px 12px #1f2b49;
+}
+p {
+  text-align: center;
+  font-size: 20px;
+  color: white;
+}
+</style>
+</head>
+<body onload="startGame()">
+<script>
+
+var gameAvatar;
+var gameObstacles = [];
+var gameBackground;
+var gameScore;
+var gameThump;
+var gameMusic;
+
+function startGame() {
+  gameAvatar = new component(47, 48, "star.png", 10, 150, "image");
+  gameBackground = new component(700, 500, "starBackground.png", 0, 0, "background");
+  gameScore = new component("30px", "Consolas", "gold", 475, 45, "text");
+  gameThump = new sound("8-bit-bump.mp3");
+  gameMusic = new sound("piano-loop-quiet.mp3");
+  gameMusic.play();
+  game.start();
+}
+
+var game = {
+  canvas: document.createElement("canvas"),
+  start: function() {
+    this.canvas.width = 700;
+    this.canvas.height = 501;
+    this.context = this.canvas.getContext("2d");
+    document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+    this.frameNo = 0;
+    this.interval = setInterval(updateGame, 20);
+  },
+  clear: function() { this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); },
+  stop: function() { clearInterval(this.interval); }
+}
+
+function everyInterval(n) {
+  if ((game.frameNo / n) % 1 == 0) {return true;}
+  return false;
+}
+
+function component(width, height, color, x, y, type) {
+  this.type = type;
+  if(type == "image" || type == "background") {
+    this.image = new Image();
+    this.image.src = color;
+  }
+  this.width = width;
+  this.height = height;
+  this.x = x;
+  this.y = y;
+  this.speedX = 0;
+  this.speedY = 0;
+  this.gravity = 0.05;
+  this.gravitySpeed = 0;
+  this.update = function() {
+    ctx = game.context;
+    if(type == "image" || type == "background") {
+      ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+
+      if(type == "background") { ctx.drawImage(this.image, this.x + this.width, this.y, this.width, this.height); }
+    }
+    else if(this.type == "text") {
+      ctx.font = this.width + " " + this.height;
+      ctx.fillStyle = color;
+      ctx.fillText(this.text, this.x, this.y);
+    }
+    else {
+      ctx.fillStyle = color;
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+  }
+  this.newPos = function() {
+    this.gravitySpeed += this.gravity;
+    this.x += this.speedX;
+    this.y += this.speedY + this.gravitySpeed;
+    this.hitTop();
+    this.hitBottom();
+    if(this.type == "background") {
+      if(this.x == -(this.width)) { this.x = 0; }
+    }
+  }
+  this.hitTop = function() {
+    var gameTop = 0;
+    if(this.y < gameTop) { this.y = gameTop; }
+  }
+  this.hitBottom = function() {
+    var gameBottom = game.canvas.height - this.height;
+    if(this.y > gameBottom) { this.y = gameBottom; }
+  }
+  this.crash = function(obstacle) {
+    var avatarLeft = this.x;
+    var avatarRight = this.x + (this.width);
+    var avatarTop = this.y;
+    var avatarBottom = this.y + (this.height);
+    var obstacleLeft = obstacle.x;
+    var obstacleRight = obstacle.x + (obstacle.width);
+    var obstacleTop = obstacle.y;
+    var obstacleBottom = obstacle.y + (obstacle.height);
+    var crash = true;
+    if((avatarLeft > obstacleRight) || (avatarRight < obstacleLeft) || (avatarTop > obstacleBottom) || (avatarBottom < obstacleTop)) { crash = false; }
+    return crash;
+  }
+}
+
+function updateGame() {
+  var x, y;
+  for(i = 0; i < gameObstacles.length; i += 1){
+    if(gameAvatar.crash(gameObstacles[i])) {
+      gameThump.play();
+      gameMusic.stop();
+      game.stop();
+      return;
+    }
+  }
+    game.clear();
+    game.frameNo += 1;
+    gameBackground.speedX = -0.3;
+    gameBackground.newPos();
+    gameBackground.update();
+    if(game.frameNo == 1 || everyInterval(125)) {
+      x = game.canvas.width;
+      minHeight = 10;
+      maxHeight = 500;
+      y = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+      gameObstacles.push(new component(100, 100, "starObstacle.png", x, y, "image"));
+    }
+    for(i = 0; i < gameObstacles.length; i += 1) {
+      gameObstacles[i].x += -1.8;
+      gameObstacles[i].update();
+    }
+    gameAvatar.newPos();
+    gameAvatar.update();
+    gameScore.text = "SCORE: " + Math.floor(game.frameNo);
+    gameScore.update();
+}
+
+function sound(src) {
+  this.sound = document.createElement("audio");
+  this.sound.src = src;
+  this.sound.setAttribute("preload", "auto");
+  this.sound.setAttribute("controls", "none");
+  this.sound.style.display = "none";
+  document.body.appendChild(this.sound);
+  this.play = function() {
+    this.sound.play();
+  }
+  this.stop = function() {
+    this.sound.pause();
+  }
+}
+
+function toFloat(n) { gameAvatar.gravity = n; }
+
+</script>
+<h1>Shooting Star</h1>
+<div style="text-align:center;">
+  <button onmousedown = "toFloat(-0.3)" onmouseup="toFloat(0.15)">FLOAT</button>
+</div>
+<p>Click on the button to keep the star keep the star afloat and avoid the asteroids that pass by.</p>
+<p>See how long you can last!</p>
+
+</body>
+</html>
